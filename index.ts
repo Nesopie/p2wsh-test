@@ -2,76 +2,27 @@ import {
     BitcoinNetwork,
     BitcoinProvider,
     BitcoinWallet,
-    generateMnemonic,
 } from "@catalogfi/wallets";
-import * as bitcoin from "bitcoinjs-lib";
 import * as crypto from "crypto";
 import { getBitcoinNetwork, getWalletSigner } from "./getWalletSigner";
-import { hash160, sha256 } from "bitcoinjs-lib/src/crypto";
-import { fromBase58Check, fromBech32 } from "bitcoinjs-lib/src/address";
+import { registeredMinters } from "./utils/ethereum/registeredMinters";
+import { registerMinter } from "./utils/ethereum/registerMinter";
+import { fromBech32, toBech32 } from "bitcoinjs-lib/src/address";
+import { hash160 } from "bitcoinjs-lib/src/crypto";
+import { strip0x } from "./utils/utils";
+import { htlcScript } from "./htlcScript";
+import * as bitcoin from "bitcoinjs-lib";
+import { mine } from "./utils/bitcoin/mine";
+import { Wallet } from "ethers";
+import { JsonRpcApiProvider } from "ethers";
+import { JsonRpcProvider } from "ethers";
+import { Minter__factory } from "./typechain";
+import { submissionDetails } from "./utils/bitcoin/submissionDetails";
 
 const FEE = 2000;
 const randomAddress = "bcrt1qcywfsrrmruczxnv0jj9gjx0tjxde3lauvt5am8";
 const network = BitcoinNetwork.Regtest;
 const bitcoinNetwork = getBitcoinNetwork(network);
-
-const htlcScript = (
-    secretHash: string,
-    theirAddress: string,
-    myAddress: string
-) => {
-    const getFormattedAddress = (address: string) => {
-        try {
-            address = fromBech32(address).data.toString("hex");
-        } catch (err) {
-            if (
-                err.message.includes("Mixed-case string") ||
-                err.message.includes("too short")
-            ) {
-                address = fromBase58Check(address).hash.toString("hex");
-            } else throw new Error(err);
-        }
-        return address;
-    };
-
-    console.log(getFormattedAddress(theirAddress));
-    console.log(getFormattedAddress(myAddress));
-
-    const script = bitcoin.script.compile([
-        bitcoin.script.OPS.OP_IF, //1
-        bitcoin.script.OPS.OP_SHA256, //1
-        Buffer.from(secretHash, "hex"), //32
-        bitcoin.script.OPS.OP_EQUALVERIFY, //1
-        bitcoin.script.OPS.OP_DUP, //1
-        bitcoin.script.OPS.OP_HASH160, //1
-        Buffer.from(getFormattedAddress(theirAddress), "hex"), //20
-        bitcoin.script.OPS.OP_ELSE, //1
-        bitcoin.script.number.encode(2), //1
-        bitcoin.script.OPS.OP_CHECKSEQUENCEVERIFY, //1
-        bitcoin.script.OPS.OP_DROP, //1
-        bitcoin.script.OPS.OP_DUP, //1
-        bitcoin.script.OPS.OP_HASH160, //1
-        Buffer.from(getFormattedAddress(myAddress), "hex"), //20
-        bitcoin.script.OPS.OP_ENDIF, //1
-        bitcoin.script.OPS.OP_EQUALVERIFY, //1
-        bitcoin.script.OPS.OP_CHECKSIG, //1
-    ]);
-
-    console.log(Buffer.from(script).toString("hex"));
-    console.log(script.length);
-    console.log(bitcoin.script.decompile(script));
-    console.log(sha256(script).toString("hex"));
-
-    const p2wsh = bitcoin.payments.p2wsh({
-        // redeem: script,
-        redeem: {
-            output: script,
-        },
-        network: bitcoinNetwork,
-    });
-
-    return p2wsh;
-};
 
 const secret = "DITTO-" + 1;
 const secretHash = crypto.createHash("sha256").update(secret).digest("hex");
@@ -85,18 +36,124 @@ const provider = new BitcoinProvider(
 
 const walletStore = new Map<string, string>();
 
-const wallet = BitcoinWallet.fromMnemonic(mnemonic, provider);
-const signer = getWalletSigner(mnemonic, network, 0);
+const bitcoinWallet = BitcoinWallet.fromMnemonic(mnemonic, provider);
+// const signer = getWalletSigner(mnemonic, network, 0);
 
 (async () => {
-    const myAddress = await wallet.getAddress();
+    console.log("address", await bitcoinWallet.getAddress());
+    // console.log(
+    //     "formateed address",
+    //     fromBech32(await wallet.getAddress()).data.toString("hex")
+    // );
+    // console.log("pubkey", await wallet.getPublicKey());
+    // console.log(
+    //     "hash160(pubkey)",
+    //     hash160(Buffer.from(await wallet.getPublicKey(), "hex"))
+    // );
+    // console.log(
+    //     toBech32(
+    //         Buffer.from("3a9fb9cba0ffa148c65890b408739b91db9c15bc", "hex"),
+    //         0,
+    //         "bcrt"
+    //     )
+    // );
+    // console.log("tobech32", toBech32(await wallet.getAddress()));
+    await registerMinter();
 
-    const p2wsh = htlcScript(secretHash, randomAddress, myAddress);
-    console.log(fromBech32(p2wsh.address!).data.toString("hex"));
+    const registeredMintersList = await registeredMinters();
+    console.log("Registered Minters List: ", registeredMintersList);
+    if (!registeredMintersList.length) {
+        console.log("No minters have been registered");
+        return;
+    }
+    const minter = strip0x(registeredMintersList[0]);
 
-    // const sendAmount = 3001;
+    const minterAddress = toBech32(
+        Buffer.from(minter, "hex"),
+        0,
+        bitcoinNetwork.bech32
+    );
 
-    // const tx = await wallet.send(p2wsh.address!, sendAmount);
+    // console.log(minterAddress);
+    const myAddress = await bitcoinWallet.getAddress();
+    const script = htlcScript(secretHash, minterAddress, myAddress);
+    const p2wsh = bitcoin.payments.p2wsh({
+        redeem: {
+            output: script,
+        },
+        network: bitcoinNetwork,
+    });
+    console.log(script.toString("hex"));
+    console.log(
+        "63a820347a74f4125e0dc75e5436c7c0a046f573d894a9a9cf09a00e65fc5967caaded8876a91442a6cd975a6742d8f5d16fc12f512ee8e3b178586752b27576a9143a9fb9cba0ffa148c65890b408739b91db9c15bc6888ac"
+    );
+    // console.log(fromBech32(p2wsh.address!).data.toString("hex"));
 
-    // console.log(tx);
+    const myP2pkhAddress = fromBech32(myAddress).data.toString("hex");
+
+    console.log("0x" + secretHash);
+    console.log("0x" + minter);
+    console.log("0x" + myP2pkhAddress);
+    console.log(fromBech32(p2wsh.address!));
+
+    return;
+
+    const sendAmount = 10000;
+    console.log(
+        `Sending ${sendAmount} sats to scriptAddress: ${p2wsh.address!}`
+    );
+    const txid = await bitcoinWallet.send(p2wsh.address!, sendAmount);
+    console.log("Broadcasted initiate transaction with txid: ", txid);
+
+    console.log("mining 72 blocks......");
+    await mine(72, minterAddress);
+
+    const tx = await provider.getTransactionHex(txid);
+    console.log("tx: ", tx);
+
+    if (!process.env.PRIVATE_KEY) {
+        throw new Error("PRIVATE_KEY is not set");
+    }
+
+    if (!process.env.RPC_URL) {
+        throw new Error("RPC_URL is not set");
+    }
+
+    const wallet = new Wallet(
+        process.env.PRIVATE_KEY,
+        new JsonRpcProvider(process.env.RPC_URL)
+    );
+
+    if (!process.env.MINTER_CONTRACT) {
+        throw new Error("MINTER_CONTRACT is not set");
+    }
+
+    const contract = Minter__factory.connect(
+        process.env.MINTER_CONTRACT,
+        wallet
+    );
+
+    if (!process.env.GENESIS_BLOCK_HASH)
+        throw new Error("GENESIS_BLOCK_HASH is not set");
+
+    const { blockSequence, blockIndex, proof, txIndex } =
+        await submissionDetails(txid, process.env.GENESIS_BLOCK_HASH);
+
+    console.log(blockSequence[0]);
+
+    await new Promise((resolve) => setTimeout(resolve, 10000));
+
+    const txHash = await contract.registerTx(
+        blockSequence,
+        blockIndex,
+        txIndex,
+        "0x" + tx,
+        proof,
+        "0x" + secretHash,
+        "0x" + minter,
+        "0x" + myP2pkhAddress
+    );
+
+    console.log(txHash);
+    // console.log(txid);
 })();
