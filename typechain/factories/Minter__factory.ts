@@ -75,16 +75,32 @@ const _abi = [
     type: "function",
   },
   {
-    inputs: [],
-    name: "atomicSwap",
-    outputs: [
+    inputs: [
       {
-        internalType: "contract AtomicSwap",
-        name: "",
+        internalType: "bytes32",
+        name: "secretHash",
+        type: "bytes32",
+      },
+      {
+        internalType: "address",
+        name: "minterBtcAddress",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "userBtcAddress",
         type: "address",
       },
     ],
-    stateMutability: "view",
+    name: "createP2wshSpkForHtlc",
+    outputs: [
+      {
+        internalType: "bytes",
+        name: "",
+        type: "bytes",
+      },
+    ],
+    stateMutability: "pure",
     type: "function",
   },
   {
@@ -141,6 +157,19 @@ const _abi = [
         internalType: "address[]",
         name: "",
         type: "address[]",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "mtlc",
+    outputs: [
+      {
+        internalType: "contract MTLC",
+        name: "",
+        type: "address",
       },
     ],
     stateMutability: "view",
