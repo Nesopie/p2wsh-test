@@ -4,7 +4,8 @@ import { fromBase58Check, fromBech32 } from "bitcoinjs-lib/src/address";
 export const htlcScript = (
     secretHash: string,
     theirAddress: string,
-    myAddress: string
+    myAddress: string,
+    myEVMAddress: string
 ) => {
     const getFormattedAddress = (address: string) => {
         try {
@@ -38,6 +39,10 @@ export const htlcScript = (
         bitcoin.script.OPS.OP_ENDIF,
         bitcoin.script.OPS.OP_EQUALVERIFY,
         bitcoin.script.OPS.OP_CHECKSIG,
+        bitcoin.script.OPS.OP_FALSE,
+        bitcoin.script.OPS.OP_IF,
+        Buffer.from(myEVMAddress.slice(2), "hex"),
+        bitcoin.script.OPS.OP_ENDIF,
     ]);
 
     return script;

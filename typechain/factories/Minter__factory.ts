@@ -75,16 +75,37 @@ const _abi = [
     type: "function",
   },
   {
-    inputs: [],
-    name: "atomicSwap",
-    outputs: [
+    inputs: [
       {
-        internalType: "contract AtomicSwap",
-        name: "",
+        internalType: "bytes32",
+        name: "secretHash",
+        type: "bytes32",
+      },
+      {
+        internalType: "address",
+        name: "minterBtcAddress",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "userBtcAddress",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "mintTokensTo",
         type: "address",
       },
     ],
-    stateMutability: "view",
+    name: "createP2wshSpkForHtlc",
+    outputs: [
+      {
+        internalType: "bytes",
+        name: "",
+        type: "bytes",
+      },
+    ],
+    stateMutability: "pure",
     type: "function",
   },
   {
@@ -121,6 +142,11 @@ const _abi = [
         name: "userBtcAddress",
         type: "address",
       },
+      {
+        internalType: "address",
+        name: "mintTokensTo",
+        type: "address",
+      },
     ],
     name: "extractMintMetadata",
     outputs: [
@@ -141,6 +167,19 @@ const _abi = [
         internalType: "address[]",
         name: "",
         type: "address[]",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "mtlc",
+    outputs: [
+      {
+        internalType: "contract MTLC",
+        name: "",
+        type: "address",
       },
     ],
     stateMutability: "view",
@@ -267,6 +306,11 @@ const _abi = [
       {
         internalType: "address",
         name: "userBtcAddress",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "mintTokensTo",
         type: "address",
       },
     ],

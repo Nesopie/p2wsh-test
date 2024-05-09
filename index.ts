@@ -24,7 +24,10 @@ const randomAddress = "bcrt1qcywfsrrmruczxnv0jj9gjx0tjxde3lauvt5am8";
 const network = BitcoinNetwork.Regtest;
 const bitcoinNetwork = getBitcoinNetwork(network);
 
-const secret = "DITTO-" + 1;
+const secret = crypto
+    .createHash("sha256")
+    .update("DITTO-" + 1)
+    .digest("hex");
 const secretHash = crypto.createHash("sha256").update(secret).digest("hex");
 
 const mnemonic =
@@ -41,23 +44,25 @@ const bitcoinWallet = BitcoinWallet.fromMnemonic(mnemonic, provider);
 
 (async () => {
     console.log("address", await bitcoinWallet.getAddress());
-    // console.log(
-    //     "formateed address",
-    //     fromBech32(await wallet.getAddress()).data.toString("hex")
-    // );
-    // console.log("pubkey", await wallet.getPublicKey());
-    // console.log(
-    //     "hash160(pubkey)",
-    //     hash160(Buffer.from(await wallet.getPublicKey(), "hex"))
-    // );
-    // console.log(
-    //     toBech32(
-    //         Buffer.from("3a9fb9cba0ffa148c65890b408739b91db9c15bc", "hex"),
-    //         0,
-    //         "bcrt"
-    //     )
-    // );
-    // console.log("tobech32", toBech32(await wallet.getAddress()));
+    console.log(
+        "formateed address",
+        fromBech32(await bitcoinWallet.getAddress()).data.toString("hex")
+    );
+    console.log("pubkey", await bitcoinWallet.getPublicKey());
+    console.log(
+        "hash160(pubkey)",
+        hash160(Buffer.from(await bitcoinWallet.getPublicKey(), "hex"))
+    );
+    console.log(
+        toBech32(
+            Buffer.from("3a9fb9cba0ffa148c65890b408739b91db9c15bc", "hex"),
+            0,
+            "bcrt"
+        )
+    );
+
+    return;
+
     await registerMinter();
 
     const registeredMintersList = await registeredMinters();
@@ -76,40 +81,7 @@ const bitcoinWallet = BitcoinWallet.fromMnemonic(mnemonic, provider);
 
     // console.log(minterAddress);
     const myAddress = await bitcoinWallet.getAddress();
-    const script = htlcScript(secretHash, minterAddress, myAddress);
-    const p2wsh = bitcoin.payments.p2wsh({
-        redeem: {
-            output: script,
-        },
-        network: bitcoinNetwork,
-    });
-    console.log(script.toString("hex"));
-    console.log(
-        "63a820347a74f4125e0dc75e5436c7c0a046f573d894a9a9cf09a00e65fc5967caaded8876a91442a6cd975a6742d8f5d16fc12f512ee8e3b178586752b27576a9143a9fb9cba0ffa148c65890b408739b91db9c15bc6888ac"
-    );
-    // console.log(fromBech32(p2wsh.address!).data.toString("hex"));
-
     const myP2pkhAddress = fromBech32(myAddress).data.toString("hex");
-
-    console.log("0x" + secretHash);
-    console.log("0x" + minter);
-    console.log("0x" + myP2pkhAddress);
-    console.log(fromBech32(p2wsh.address!));
-
-    return;
-
-    const sendAmount = 10000;
-    console.log(
-        `Sending ${sendAmount} sats to scriptAddress: ${p2wsh.address!}`
-    );
-    const txid = await bitcoinWallet.send(p2wsh.address!, sendAmount);
-    console.log("Broadcasted initiate transaction with txid: ", txid);
-
-    console.log("mining 72 blocks......");
-    await mine(72, minterAddress);
-
-    const tx = await provider.getTransactionHex(txid);
-    console.log("tx: ", tx);
 
     if (!process.env.PRIVATE_KEY) {
         throw new Error("PRIVATE_KEY is not set");
@@ -123,6 +95,33 @@ const bitcoinWallet = BitcoinWallet.fromMnemonic(mnemonic, provider);
         process.env.PRIVATE_KEY,
         new JsonRpcProvider(process.env.RPC_URL)
     );
+
+    const script = htlcScript(
+        secretHash,
+        minterAddress,
+        myAddress,
+        await wallet.getAddress()
+    );
+
+    const p2wsh = bitcoin.payments.p2wsh({
+        redeem: {
+            output: script,
+        },
+        network: bitcoinNetwork,
+    });
+
+    const sendAmount = 10000;
+    console.log(
+        `Sending ${sendAmount} sats to scriptAddress: ${p2wsh.address!}`
+    );
+    const txid = await bitcoinWallet.send(p2wsh.address!, sendAmount);
+    console.log("Broadcasted initiate transaction with txid: ", txid);
+
+    console.log("mining 72 blocks......");
+    await mine(72, minterAddress);
+
+    const tx = await provider.getTransactionHex(txid);
+    console.log("tx: ", tx);
 
     if (!process.env.MINTER_CONTRACT) {
         throw new Error("MINTER_CONTRACT is not set");
@@ -151,9 +150,10 @@ const bitcoinWallet = BitcoinWallet.fromMnemonic(mnemonic, provider);
         proof,
         "0x" + secretHash,
         "0x" + minter,
-        "0x" + myP2pkhAddress
+        "0x" + myP2pkhAddress,
+        await wallet.getAddress()
     );
 
-    console.log(txHash);
+    console.log(txHash.hash);
     // console.log(txid);
 })();

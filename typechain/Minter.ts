@@ -59,9 +59,10 @@ export interface MinterInterface extends Interface {
       | "TxIDS"
       | "WhitelistedAddresses"
       | "WhitelistedAddressesArr"
-      | "atomicSwap"
+      | "createP2wshSpkForHtlc"
       | "extractMintMetadata"
       | "getWhiteListedAddresses"
+      | "mtlc"
       | "parseTx"
       | "register"
       | "registerTx"
@@ -79,17 +80,18 @@ export interface MinterInterface extends Interface {
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
-    functionFragment: "atomicSwap",
-    values?: undefined
+    functionFragment: "createP2wshSpkForHtlc",
+    values: [BytesLike, AddressLike, AddressLike, AddressLike]
   ): string;
   encodeFunctionData(
     functionFragment: "extractMintMetadata",
-    values: [OutpointStruct[], BytesLike, AddressLike, AddressLike]
+    values: [OutpointStruct[], BytesLike, AddressLike, AddressLike, AddressLike]
   ): string;
   encodeFunctionData(
     functionFragment: "getWhiteListedAddresses",
     values?: undefined
   ): string;
+  encodeFunctionData(functionFragment: "mtlc", values?: undefined): string;
   encodeFunctionData(functionFragment: "parseTx", values: [BytesLike]): string;
   encodeFunctionData(
     functionFragment: "register",
@@ -104,6 +106,7 @@ export interface MinterInterface extends Interface {
       BytesLike,
       BytesLike[],
       BytesLike,
+      AddressLike,
       AddressLike,
       AddressLike
     ]
@@ -123,7 +126,10 @@ export interface MinterInterface extends Interface {
     functionFragment: "WhitelistedAddressesArr",
     data: BytesLike
   ): Result;
-  decodeFunctionResult(functionFragment: "atomicSwap", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "createP2wshSpkForHtlc",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(
     functionFragment: "extractMintMetadata",
     data: BytesLike
@@ -132,6 +138,7 @@ export interface MinterInterface extends Interface {
     functionFragment: "getWhiteListedAddresses",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(functionFragment: "mtlc", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "parseTx", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "register", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "registerTx", data: BytesLike): Result;
@@ -199,20 +206,32 @@ export interface Minter extends BaseContract {
     "view"
   >;
 
-  atomicSwap: TypedContractMethod<[], [string], "view">;
+  createP2wshSpkForHtlc: TypedContractMethod<
+    [
+      secretHash: BytesLike,
+      minterBtcAddress: AddressLike,
+      userBtcAddress: AddressLike,
+      mintTokensTo: AddressLike
+    ],
+    [string],
+    "view"
+  >;
 
   extractMintMetadata: TypedContractMethod<
     [
       outpoints: OutpointStruct[],
       secretHash: BytesLike,
       minterBtcAddress: AddressLike,
-      userBtcAddress: AddressLike
+      userBtcAddress: AddressLike,
+      mintTokensTo: AddressLike
     ],
     [bigint],
     "view"
   >;
 
   getWhiteListedAddresses: TypedContractMethod<[], [string[]], "view">;
+
+  mtlc: TypedContractMethod<[], [string], "view">;
 
   parseTx: TypedContractMethod<
     [txHex: BytesLike],
@@ -231,7 +250,8 @@ export interface Minter extends BaseContract {
       proof: BytesLike[],
       secretHash: BytesLike,
       minterBtcAddress: AddressLike,
-      userBtcAddress: AddressLike
+      userBtcAddress: AddressLike,
+      mintTokensTo: AddressLike
     ],
     [void],
     "nonpayable"
@@ -255,8 +275,17 @@ export interface Minter extends BaseContract {
     nameOrSignature: "WhitelistedAddressesArr"
   ): TypedContractMethod<[arg0: BigNumberish], [string], "view">;
   getFunction(
-    nameOrSignature: "atomicSwap"
-  ): TypedContractMethod<[], [string], "view">;
+    nameOrSignature: "createP2wshSpkForHtlc"
+  ): TypedContractMethod<
+    [
+      secretHash: BytesLike,
+      minterBtcAddress: AddressLike,
+      userBtcAddress: AddressLike,
+      mintTokensTo: AddressLike
+    ],
+    [string],
+    "view"
+  >;
   getFunction(
     nameOrSignature: "extractMintMetadata"
   ): TypedContractMethod<
@@ -264,7 +293,8 @@ export interface Minter extends BaseContract {
       outpoints: OutpointStruct[],
       secretHash: BytesLike,
       minterBtcAddress: AddressLike,
-      userBtcAddress: AddressLike
+      userBtcAddress: AddressLike,
+      mintTokensTo: AddressLike
     ],
     [bigint],
     "view"
@@ -272,6 +302,9 @@ export interface Minter extends BaseContract {
   getFunction(
     nameOrSignature: "getWhiteListedAddresses"
   ): TypedContractMethod<[], [string[]], "view">;
+  getFunction(
+    nameOrSignature: "mtlc"
+  ): TypedContractMethod<[], [string], "view">;
   getFunction(
     nameOrSignature: "parseTx"
   ): TypedContractMethod<
@@ -293,7 +326,8 @@ export interface Minter extends BaseContract {
       proof: BytesLike[],
       secretHash: BytesLike,
       minterBtcAddress: AddressLike,
-      userBtcAddress: AddressLike
+      userBtcAddress: AddressLike,
+      mintTokensTo: AddressLike
     ],
     [void],
     "nonpayable"
